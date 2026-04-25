@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Altcoin Alpha Engine</title>
+<style>
+  :root {
+    --bg:      #0d0f14;
+    --bg2:     #161920;
+    --bg3:     #1e2230;
+    --border:  #2a2f42;
+    --text:    #c8cde0;
+    --muted:   #5a6080;
+    --teal:    #1db87a;
+    --teal2:   #0d6e47;
+    --red:     #e24b4a;
+    --amber:   #ef9f27;
+    --blue:    #378add;
+    --purple:  #7f77dd;
+    --font: -apple-system, 'SF Pro Display', 'Segoe UI', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font);
+         font-size: 13px; line-height: 1.5; }
+
+  .header { padding: 18px 24px 12px; border-bottom: 1px solid var(--border);
+             display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 15px; font-weight: 500; color: var(--teal); letter-spacing: 0.02em; }
+  .header .meta { color: var(--muted); font-size: 11px; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+               background: var(--border); border-bottom: 1px solid var(--border); }
+  .kpi { background: var(--bg2); padding: 14px 20px; }
+  .kpi .label { color: var(--muted); font-size: 10px; text-transform: uppercase;
+                letter-spacing: 0.08em; margin-bottom: 4px; }
+  .kpi .value { font-size: 22px; font-weight: 500; }
+  .kpi .sub   { color: var(--muted); font-size: 10px; margin-top: 2px; }
+
+  .regime-bar { padding: 8px 24px; font-size: 11px; font-weight: 500;
+                letter-spacing: 0.06em; text-align: center; }
+  .regime-bull  { background: rgba(29,184,122,0.15); color: var(--teal); border-bottom: 1px solid var(--teal2); }
+  .regime-bear  { background: rgba(226,75,74,0.12);  color: var(--red);  border-bottom: 1px solid rgba(226,75,74,0.3); }
+  .regime-neutral { background: rgba(90,96,128,0.15); color: var(--muted); border-bottom: 1px solid var(--border); }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { background: var(--bg3); color: var(--muted); font-weight: 500;
+             font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em;
+             padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--border); }
+  thead th:first-child { text-align: left; }
+  tbody tr { border-bottom: 1px solid rgba(42,47,66,0.5); transition: background 0.1s; }
+  tbody tr:hover { background: var(--bg2); }
+  tbody td { padding: 9px 12px; text-align: right; font-variant-numeric: tabular-nums; }
+  tbody td:first-child { text-align: left; }
+
+  .sym { font-weight: 500; color: #e0e4f0; font-size: 13px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px;
+           font-size: 10px; font-weight: 500; letter-spacing: 0.05em; }
+  .badge-STRONG_LONG  { background: rgba(29,184,122,0.2); color: var(--teal); }
+  .badge-LONG         { background: rgba(29,184,122,0.1); color: #4ec99a; }
+  .badge-FLAT         { background: rgba(90,96,128,0.1);  color: var(--muted); }
+  .badge-SHORT        { background: rgba(226,75,74,0.1);  color: #e87876; }
+  .badge-STRONG_SHORT { background: rgba(226,75,74,0.2);  color: var(--red); }
+
+  .score-bar { display: inline-block; height: 6px; border-radius: 3px; vertical-align: middle;
+               margin-left: 6px; max-width: 50px; }
+  .bar-pos { background: var(--teal); }
+  .bar-neg { background: var(--red); }
+
+  .spike-flag { color: var(--amber); font-size: 10px; margin-left: 4px; }
+  .pos  { color: var(--teal); }
+  .neg  { color: var(--red); }
+  .muted { color: var(--muted); }
+
+  .footer { padding: 12px 24px; color: var(--muted); font-size: 10px;
+             border-top: 1px solid var(--border); display: flex; justify-content: space-between; }
+
+  .loading { text-align: center; padding: 60px; color: var(--muted); }
+  .error   { text-align: center; padding: 60px; color: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>ALTCOIN ALPHA ENGINE</h1>
+  <div class="meta" id="update-time">yükleniyor...</div>
+</div>
+
+<div id="regime-bar" class="regime-bar regime-neutral">—</div>
+
+<div class="kpi-grid" id="kpi-grid">
+  <div class="kpi"><div class="label">BTC Spot</div><div class="value" id="k-spot">—</div></div>
+  <div class="kpi"><div class="label">Long pozisyon</div><div class="value pos" id="k-long">—</div></div>
+  <div class="kpi"><div class="label">Short pozisyon</div><div class="value neg" id="k-short">—</div></div>
+  <div class="kpi"><div class="label">Sinyal dağılımı</div><div class="value" id="k-dist">—</div><div class="sub" id="k-sub">—</div></div>
+</div>
+
+<div class="table-wrap">
+  <table id="signal-table">
+    <thead>
+      <tr>
+        <th>Sembol</th>
+        <th>Sinyal</th>
+        <th>Skor</th>
+        <th>Trend Z</th>
+        <th>Mom Z</th>
+        <th>Carry Z</th>
+        <th>Funding %</th>
+        <th>F-Spike</th>
+        <th>Pos %</th>
+        <th>24h %</th>
+      </tr>
+    </thead>
+    <tbody id="signal-body">
+      <tr><td colspan="10" class="loading">Sinyaller yükleniyor...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="footer">
+  <span>G-DIVE + HyperTrend (Scott Phillips) stratejisi — Kai</span>
+  <span id="next-run">—</span>
+</div>
+
+<script>
+const fmt = (n, d=2) => (n >= 0 ? '+' : '') + Number(n).toFixed(d);
+const fmtUSD = n => '$' + (n >= 1e6 ? (n/1e6).toFixed(1)+'M' : (n/1e3).toFixed(0)+'K');
+
+async function load() {
+  try {
+    const cache = Date.now();
+    const r = await fetch(`signals.json?t=${cache}`);
+    if (!r.ok) throw new Error('signals.json bulunamadı');
+    const d = await r.json();
+
+    document.getElementById('update-time').textContent =
+      'Son güncelleme: ' + d.generated_at_str;
+
+    // Regime bar
+    const regime = d.btc_regime?.regime || 'NEUTRAL';
+    const regBar = document.getElementById('regime-bar');
+    regBar.className = 'regime-bar ' +
+      (regime === 'BULL_GAMMA' ? 'regime-bull' :
+       regime === 'BEAR_GAMMA' ? 'regime-bear' : 'regime-neutral');
+    regBar.textContent =
+      regime === 'BULL_GAMMA' ? 'BTC MACRO: BULL GAMMA — Dealer long, altcoin long bias aktif' :
+      regime === 'BEAR_GAMMA' ? 'BTC MACRO: BEAR GAMMA — Dealer short, altcoin long pozisyon kapalı' :
+      'BTC MACRO: NEUTRAL — Azaltılmış pozisyon boyutu';
+
+    // KPIs
+    const s = d.portfolio_summary;
+    const btcSpot = d.btc_regime?.spot || 0;
+    document.getElementById('k-spot').textContent = '$' + btcSpot.toLocaleString();
+    document.getElementById('k-long').textContent = '%' + s.total_long_pct;
+    document.getElementById('k-short').textContent = '%' + s.total_short_pct;
+    document.getElementById('k-dist').textContent =
+      s.long_count + 'L / ' + s.short_count + 'S / ' + s.flat_count + 'F';
+    document.getElementById('k-sub').textContent = d.signals.length + ' coin analiz edildi';
+
+    // Table
+    const tbody = document.getElementById('signal-body');
+    tbody.innerHTML = '';
+
+    for (const sig of d.signals) {
+      const score = sig.score;
+      const barW  = Math.round(Math.abs(score) * 50);
+      const barClass = score >= 0 ? 'bar-pos' : 'bar-neg';
+      const chgClass = sig.price_chg_24h >= 0 ? 'pos' : 'neg';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="sym">${sig.symbol}</span></td>
+        <td><span class="badge badge-${sig.signal}">${sig.signal.replace('_', ' ')}</span>${sig.spike ? '<span class="spike-flag">⚑</span>' : ''}</td>
+        <td>${fmt(score, 3)}<span class="score-bar ${barClass}" style="width:${barW}px"></span></td>
+        <td class="${sig.trend_z >= 0 ? 'pos' : 'neg'}">${fmt(sig.trend_z)}</td>
+        <td class="${sig.momentum_z >= 0 ? 'pos' : 'neg'}">${fmt(sig.momentum_z)}</td>
+        <td class="${sig.carry_z >= 0 ? 'pos' : 'neg'}">${fmt(sig.carry_z)}</td>
+        <td class="${sig.funding >= 0 ? 'muted' : 'pos'}">${fmt(sig.funding, 4)}%</td>
+        <td class="${sig.spike ? 'amber' : 'muted'}">${sig.spike ? fmt(sig.funding_z, 1)+'σ' : '—'}</td>
+        <td class="pos">${sig.pos_size_pct > 0 ? '%' + sig.pos_size_pct : '—'}</td>
+        <td class="${chgClass}">${fmt(sig.price_chg_24h, 2)}%</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    // Next run estimate
+    const lastRun = new Date(d.generated_at);
+    const next = new Date(lastRun.getTime() + 4 * 60 * 60 * 1000);
+    document.getElementById('next-run').textContent =
+      'Sonraki güncelleme: ' + next.toLocaleTimeString('tr-TR', {hour:'2-digit', minute:'2-digit'}) + ' UTC';
+
+  } catch(e) {
+    document.getElementById('signal-body').innerHTML =
+      `<tr><td colspan="10" class="error">Hata: ${e.message}<br><br>
+       algo/run_signals.py çalıştıktan sonra signals.json oluşur.</td></tr>`;
+  }
+}
+
+load();
+setInterval(load, 5 * 60 * 1000);  // 5 dakikada bir yenile
+</script>
+</body>
+</html>
