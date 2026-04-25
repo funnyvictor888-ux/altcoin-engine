@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-04-25T19:03:06.172879+00:00",
+  "generated_at_str": "25 Apr 2026, 19:03 UTC",
+  "btc_regime": {
+    "regime": "BULL_GAMMA",
+    "spot": 77327.0,
+    "net_gex_proxy": 0.0,
+    "flip_estimate": 75780.0,
+    "alt_multiplier": 1.0
+  },
+  "portfolio_summary": {
+    "total_long_pct": 0,
+    "total_short_pct": 0,
+    "long_count": 0,
+    "short_count": 0,
+    "flat_count": 0
+  },
+  "signals": []
+}
