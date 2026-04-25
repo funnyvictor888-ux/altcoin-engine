@@ -12,13 +12,13 @@ name: Altcoin Alpha Engine
 
 on:
   schedule:
-    - cron: '0 */4 * * *'   # her 4 saatte bir: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
+    - cron: '0 */4 * * *'
   push:
     branches: [ main, master ]
-  workflow_dispatch:          # manuel tetikleme (Actions tab'dan)
+  workflow_dispatch:
 
 permissions:
-  contents: write             # signals.json'ı repo'ya yazabilmek için
+  contents: write
   pages: write
   id-token: write
 
@@ -37,17 +37,17 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Bağımlılıklar
+      - name: Bagimliliklar
         run: |
           pip install -q requests numpy pandas
 
-      - name: Algo çalıştır
+      - name: Algo calistir
         env:
           DERIBIT_CLIENT_ID:     ${{ secrets.DERIBIT_CLIENT_ID }}
           DERIBIT_CLIENT_SECRET: ${{ secrets.DERIBIT_CLIENT_SECRET }}
-        run: python algo/run_signals.py
+        run: python run_signals.py
 
-      - name: Sinyalleri repo'ya kaydet
+      - name: Sinyalleri kaydet
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
