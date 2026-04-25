@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # ── Dizin yapısı ──────────────────────────────────────────────
-ROOT   = Path(__file__).parent.parent
+ROOT   = Path(__file__).parent
 DOCS   = ROOT / "docs"
 DOCS.mkdir(exist_ok=True)
 (ROOT / "algo").mkdir(exist_ok=True)
