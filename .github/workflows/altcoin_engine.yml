@@ -1,0 +1,78 @@
+# .github/workflows/altcoin_engine.yml
+#
+# KURULUM:
+#   1. Bu dosyayı reponun .github/workflows/ klasörüne koy
+#   2. GitHub Settings > Secrets > Actions'a ekle:
+#      DERIBIT_CLIENT_ID     (public data için gerekli değil ama ileride lazım)
+#      DERIBIT_CLIENT_SECRET
+#   3. Repo Settings > Pages > Source: "GitHub Actions" seç
+#   4. Hepsi bu kadar — her push ve 4 saatte bir otomatik çalışır
+
+name: Altcoin Alpha Engine
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'   # her 4 saatte bir: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:          # manuel tetikleme (Actions tab'dan)
+
+permissions:
+  contents: write             # signals.json'ı repo'ya yazabilmek için
+  pages: write
+  id-token: write
+
+jobs:
+  run-algo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python kurulum
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Bağımlılıklar
+        run: |
+          pip install -q requests numpy pandas
+
+      - name: Algo çalıştır
+        env:
+          DERIBIT_CLIENT_ID:     ${{ secrets.DERIBIT_CLIENT_ID }}
+          DERIBIT_CLIENT_SECRET: ${{ secrets.DERIBIT_CLIENT_SECRET }}
+        run: python algo/run_signals.py
+
+      - name: Sinyalleri repo'ya kaydet
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/signals.json docs/last_run.txt
+          git diff --staged --quiet || git commit -m "signals update $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
+
+  deploy-pages:
+    needs: run-algo
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
