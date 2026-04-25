@@ -1,365 +1,195 @@
 """
-algo/run_signals.py
-Deribit PUBLIC API'den veri çeker (auth gerektirmez)
-Sinyalleri docs/signals.json'a yazar → GitHub Pages'te gösterilir
-
-Çalıştır: python algo/run_signals.py
+run_signals.py — CoinGecko + Deribit public API
+Coğrafi kısıtlama yok, auth gerektirmez.
 """
 
-import json
-import os
-import time
-import requests
-import numpy as np
-import pandas as pd
+import json, time, requests, numpy as np, pandas as pd
 from datetime import datetime, timezone
 from pathlib import Path
 
-# ── Dizin yapısı ──────────────────────────────────────────────
-ROOT   = Path(__file__).parent
-DOCS   = ROOT / "docs"
+ROOT = Path(__file__).parent
+DOCS = ROOT / "docs"
 DOCS.mkdir(exist_ok=True)
-(ROOT / "algo").mkdir(exist_ok=True)
 
-# ── Deribit Public API ─────────────────────────────────────────
-DERIBIT = "https://www.deribit.com/api/v2/public"
+COINGECKO = "https://api.coingecko.com/api/v3"
+DERIBIT   = "https://www.deribit.com/api/v2/public"
 
-def deribit_get(method: str, params: dict = {}) -> dict:
+def cg_get(endpoint, params={}):
+    r = requests.get(f"{COINGECKO}{endpoint}", params=params, timeout=20)
+    r.raise_for_status()
+    return r.json()
+
+def deribit_get(method, params={}):
     r = requests.get(f"{DERIBIT}/{method}", params=params, timeout=15)
     r.raise_for_status()
     return r.json().get("result", {})
 
-# ── Binance Public API (funding + fiyat) ──────────────────────
-BINANCE = "https://fapi.binance.com/fapi/v1"
-
-def binance_get(endpoint: str, params: dict = {}) -> list | dict:
-    r = requests.get(f"{BINANCE}/{endpoint}", params=params, timeout=15)
-    r.raise_for_status()
-    return r.json()
-
-# ══════════════════════════════════════════════════════════════
-# 1. BTC MACRO REGİME (Deribit'ten GEX proxy)
-# ══════════════════════════════════════════════════════════════
-
-def get_btc_macro_regime() -> dict:
-    """
-    Deribit public API'den BTC options verisi çekip
-    basit GEX proxy hesaplar.
-    Tam G-DIVE bağlantısı olmadan çalışır.
-    """
+# ── BTC Macro Regime ──────────────────────────────────────────
+def get_btc_regime():
     try:
-        # BTC spot
-        ticker = deribit_get("get_index_price", {"index_name": "btc_usd"})
-        spot   = float(ticker.get("index_price", 0))
-
-        # BTC option book summary — açık pozisyon bilgisi
-        options = deribit_get("get_book_summary_by_currency",
-                              {"currency": "BTC", "kind": "option"})
-
-        if not options or spot == 0:
-            return {"regime": "NEUTRAL", "spot": spot, "net_gex_proxy": 0}
-
-        # GEX proxy: her strike için gamma × OI × direction
-        net_gex = 0.0
-        for opt in options:
-            try:
-                strike     = float(opt.get("strike", 0))
-                oi         = float(opt.get("open_interest", 0))
-                option_type = "call" if "C" in opt.get("instrument_name", "") else "put"
-                mid        = float(opt.get("mid_price", 0)) * spot
-
-                moneyness  = (spot - strike) / spot
-                # Basit gamma proxy: OI × moneyness proximity
-                gamma_proxy = oi * np.exp(-0.5 * (moneyness / 0.05) ** 2)
-
-                if option_type == "call":
-                    net_gex += gamma_proxy
-                else:
-                    net_gex -= gamma_proxy
-            except (ValueError, TypeError):
-                continue
-
-        regime = "BULL_GAMMA" if net_gex > 0 else "BEAR_GAMMA"
-        flip_est = spot * (1 - 0.02 if net_gex > 0 else 1 + 0.02)
-
-        return {
-            "regime":        regime,
-            "spot":          round(spot, 0),
-            "net_gex_proxy": round(net_gex, 0),
-            "flip_estimate": round(flip_est, 0),
-            "alt_multiplier": 1.0 if regime == "BULL_GAMMA" else 0.0
-        }
-
+        data  = cg_get("/simple/price", {"ids": "bitcoin", "vs_currencies": "usd",
+                                          "include_24hr_change": "true"})
+        spot  = float(data["bitcoin"]["usd"])
+        chg   = float(data["bitcoin"].get("usd_24h_change", 0))
+        regime = "BULL_GAMMA" if chg > 0 else "BEAR_GAMMA"
+        return {"regime": regime, "spot": round(spot, 0),
+                "chg_24h": round(chg, 2), "alt_multiplier": 1.0 if chg > 0 else 0.3}
     except Exception as e:
-        print(f"[WARN] BTC regime hatası: {e}")
-        return {"regime": "NEUTRAL", "spot": 0, "net_gex_proxy": 0, "alt_multiplier": 0.6}
+        print(f"[WARN] BTC regime: {e}")
+        return {"regime": "NEUTRAL", "spot": 0, "chg_24h": 0, "alt_multiplier": 0.5}
 
-
-# ══════════════════════════════════════════════════════════════
-# 2. ALTCOIN UNIVERSE (Binance top perpetuals)
-# ══════════════════════════════════════════════════════════════
-
-def get_altcoin_universe(top_n: int = 20) -> list[dict]:
-    """
-    Binance perp market'tan en likit altcoin universe'ini al.
-    $50M-$5B market cap filtresi burada hacim proxy olarak uygulanır.
-    """
+# ── Altcoin Universe ──────────────────────────────────────────
+def get_universe(top_n=20):
     try:
-        tickers = binance_get("ticker/24hr")
+        coins = cg_get("/coins/markets", {
+            "vs_currency":    "usd",
+            "order":          "volume_desc",
+            "per_page":       80,
+            "page":           1,
+            "sparkline":      "false",
+            "price_change_percentage": "24h"
+        })
         alts = []
-
-        for t in tickers:
-            symbol = t.get("symbol", "")
-            if not symbol.endswith("USDT") or "BTC" in symbol or "ETH" in symbol:
+        exclude = {"bitcoin", "ethereum", "tether", "usd-coin", "binance-usd",
+                   "dai", "true-usd", "usdd", "frax", "staked-ether"}
+        for c in coins:
+            if c["id"] in exclude:
                 continue
-
-            volume_usd = float(t.get("quoteVolume", 0))
-            price      = float(t.get("lastPrice", 0))
-            price_chg  = float(t.get("priceChangePercent", 0))
-            count      = int(t.get("count", 0))
-
-            # Hacim filtresi: $5M-$500M arası (size decay proxy)
-            if not (5_000_000 <= volume_usd <= 500_000_000):
+            mcap = c.get("market_cap") or 0
+            vol  = c.get("total_volume") or 0
+            if not (50_000_000 <= mcap <= 10_000_000_000):
                 continue
-
+            if vol < 5_000_000:
+                continue
             alts.append({
-                "symbol":     symbol.replace("USDT", ""),
-                "price":      round(price, 6),
-                "volume_usd": round(volume_usd, 0),
-                "price_chg_24h": round(price_chg, 2),
-                "trade_count": count
+                "id":          c["id"],
+                "symbol":      c["symbol"].upper(),
+                "price":       c.get("current_price", 0),
+                "mcap":        mcap,
+                "volume_usd":  vol,
+                "price_chg_24h": c.get("price_change_percentage_24h") or 0
             })
-
-        # Hacme göre sırala, top N al
-        alts.sort(key=lambda x: x["volume_usd"], reverse=True)
         return alts[:top_n]
-
     except Exception as e:
-        print(f"[WARN] Universe hatası: {e}")
+        print(f"[WARN] Universe: {e}")
         return []
 
-
-# ══════════════════════════════════════════════════════════════
-# 3. HYPERTREND SINYAL HESAPLAYICI
-# ══════════════════════════════════════════════════════════════
-
-def get_klines(symbol: str, interval: str = "4h", limit: int = 100) -> pd.DataFrame:
-    """Binance'ten OHLCV verisi çek."""
+# ── Fiyat geçmişi ─────────────────────────────────────────────
+def get_price_history(coin_id):
     try:
-        data = binance_get("klines", {
-            "symbol":   symbol + "USDT",
-            "interval": interval,
-            "limit":    limit
-        })
-        df = pd.DataFrame(data, columns=[
-            "time","open","high","low","close","volume",
-            "close_time","quote_vol","trades","taker_buy_base",
-            "taker_buy_quote","ignore"
-        ])
-        df["close"]  = pd.to_numeric(df["close"])
-        df["volume"] = pd.to_numeric(df["quote_vol"])
-        df.set_index("time", inplace=True)
-        return df
+        data = cg_get(f"/coins/{coin_id}/market_chart",
+                      {"vs_currency": "usd", "days": 60, "interval": "daily"})
+        prices = [p[1] for p in data.get("prices", [])]
+        return pd.Series(prices)
     except Exception:
-        return pd.DataFrame()
+        return pd.Series()
 
-
-def get_funding_rate(symbol: str) -> float:
-    """Anlık funding rate al."""
-    try:
-        data = binance_get("premiumIndex", {"symbol": symbol + "USDT"})
-        return float(data.get("lastFundingRate", 0))
-    except Exception:
-        return 0.0
-
-
-def compute_hypertrend_score(df: pd.DataFrame, funding: float) -> dict:
-    """
-    Trend (50%) + Momentum (30%) + Carry (20%)
-    """
-    if len(df) < 60:
+# ── HyperTrend Skorlayıcı ─────────────────────────────────────
+def score(close):
+    if len(close) < 25:
         return {"score": 0.0, "trend": 0.0, "momentum": 0.0, "carry": 0.0}
 
-    close = df["close"]
-
-    # Trend: 20-bar high kırılımı
+    # Trend: 20-gün high kırılımı
     hi = close.shift(1).rolling(20).max()
     lo = close.shift(1).rolling(20).min()
-    trend_raw = pd.Series(0.0, index=close.index)
-    trend_raw[close > hi] =  1.0
-    trend_raw[close < lo] = -1.0
+    t  = pd.Series(0.0, index=close.index)
+    t[close > hi] =  1.0
+    t[close < lo] = -1.0
 
-    # Momentum: 60-bar risk-adjusted return
-    ret = close.pct_change(60)
-    vol = close.pct_change().rolling(60).std() * np.sqrt(365 * 6)  # 4h → annual
-    mom_raw = (ret / (vol + 1e-9)).fillna(0)
+    # Momentum: 20-gün risk-adj return
+    ret = close.pct_change(20)
+    vol = close.pct_change().rolling(20).std() * np.sqrt(365)
+    m   = (ret / (vol + 1e-9)).fillna(0)
 
-    # Carry: funding rate (negatif → long carry)
-    annual_funding = funding * 3 * 365
-    carry_raw = pd.Series(-annual_funding, index=close.index)
+    def zs(s):
+        mu, std = s.mean(), s.std()
+        if std == 0: return 0.0
+        return float(np.clip((s.iloc[-1] - mu) / std, -3, 3))
 
-    def last_zscore(s: pd.Series) -> float:
-        mu  = s.rolling(60).mean().iloc[-1]
-        std = s.rolling(60).std().iloc[-1]
-        val = s.iloc[-1]
-        if std == 0 or np.isnan(std):
-            return 0.0
-        return float(np.clip((val - mu) / std, -3, 3))
+    t_z = zs(t)
+    m_z = zs(m)
+    combined = float(np.clip(0.6*t_z + 0.4*m_z, -3, 3)) / 3
 
-    t_z = last_zscore(trend_raw)
-    m_z = last_zscore(mom_raw)
-    c_z = last_zscore(carry_raw)
+    return {"score": round(combined, 3), "trend": round(t_z, 2),
+            "momentum": round(m_z, 2), "carry": 0.0}
 
-    combined = float(np.clip(0.5*t_z + 0.3*m_z + 0.2*c_z, -3, 3)) / 3
-
-    return {
-        "score":    round(combined, 3),
-        "trend":    round(t_z, 2),
-        "momentum": round(m_z, 2),
-        "carry":    round(c_z, 2)
-    }
-
-
-def get_signal_label(score: float) -> str:
-    if score >  0.60: return "STRONG_LONG"
-    if score >  0.25: return "LONG"
-    if score < -0.60: return "STRONG_SHORT"
-    if score < -0.25: return "SHORT"
+def label(s):
+    if s >  0.55: return "STRONG_LONG"
+    if s >  0.20: return "LONG"
+    if s < -0.55: return "STRONG_SHORT"
+    if s < -0.20: return "SHORT"
     return "FLAT"
 
-
-def compute_position_size(df: pd.DataFrame, score: float, regime_mult: float) -> float:
-    """Vol-weighted position sizing."""
-    if df.empty:
-        return 0.0
-    vol = df["close"].pct_change().rolling(20).std().iloc[-1] * np.sqrt(365 * 6)
-    if vol == 0 or np.isnan(vol):
-        return 0.0
-    target_vol = 0.15
-    raw = (target_vol / vol) * abs(score) * regime_mult
+def pos_size(close, score_val, mult):
+    if close.empty: return 0.0
+    vol = close.pct_change().rolling(20).std().iloc[-1] * np.sqrt(365)
+    if not vol or np.isnan(vol): return 0.0
+    raw = (0.15 / vol) * abs(score_val) * mult
     return round(float(np.clip(raw, 0, 0.20)) * 100, 1)
 
-
-# ══════════════════════════════════════════════════════════════
-# 4. FUNDING MANİPÜLASYON KONTROLÜ
-# ══════════════════════════════════════════════════════════════
-
-def check_funding_spike(symbol: str) -> dict:
-    """Son 48 funding periyodunun z-score'unu hesapla."""
-    try:
-        data = binance_get("fundingRate", {
-            "symbol": symbol + "USDT",
-            "limit":  50
-        })
-        rates = [float(d["fundingRate"]) for d in data]
-        if len(rates) < 10:
-            return {"spike": False, "z": 0.0}
-        arr   = np.array(rates)
-        mu    = arr[:-1].mean()
-        std   = arr[:-1].std()
-        last  = arr[-1]
-        z     = float((last - mu) / (std + 1e-9))
-
-        if abs(z) > 3.0:
-            direction = "pos" if z > 0 else "neg"
-            return {
-                "spike":     True,
-                "z":         round(z, 2),
-                "direction": direction,
-                "action":    f"KONTRARIAN_{'LONG' if direction == 'pos' else 'SHORT'}",
-                "note":      f"Funding spike {z:+.1f}σ → flush sonrası fırsat"
-            }
-        return {"spike": False, "z": round(z, 2)}
-
-    except Exception:
-        return {"spike": False, "z": 0.0}
-
-
-# ══════════════════════════════════════════════════════════════
-# MAIN
-# ══════════════════════════════════════════════════════════════
-
+# ── Main ──────────────────────────────────────────────────────
 def main():
     now = datetime.now(timezone.utc)
     print(f"[{now.strftime('%Y-%m-%d %H:%M UTC')}] Altcoin Alpha Engine başlıyor...")
 
-    # 1. BTC macro regime
-    print("→ BTC regime analiz ediliyor...")
-    regime = get_btc_macro_regime()
-    print(f"  Regime: {regime['regime']} | Spot: ${regime['spot']:,.0f} | "
-          f"GEX proxy: {regime['net_gex_proxy']:+.0f}")
+    print("→ BTC regime...")
+    regime = get_btc_regime()
+    print(f"  {regime['regime']} | ${regime['spot']:,.0f} | 24h: {regime['chg_24h']:+.1f}%")
 
-    # 2. Altcoin universe
-    print("→ Altcoin universe çekiliyor...")
-    universe = get_altcoin_universe(top_n=20)
-    print(f"  {len(universe)} altcoin filtreye geçti")
+    print("→ Universe çekiliyor...")
+    universe = get_universe(20)
+    print(f"  {len(universe)} coin bulundu")
 
-    # 3. Her coin için sinyal hesapla
     signals = []
-    for coin in universe:
+    for i, coin in enumerate(universe):
         sym = coin["symbol"]
         try:
-            df      = get_klines(sym, interval="4h", limit=100)
-            funding = get_funding_rate(sym)
-            scores  = compute_hypertrend_score(df, funding)
-            spike   = check_funding_spike(sym)
-
-            score = scores["score"]
-
-            # Funding spike varsa kontrarian boost
-            if spike["spike"]:
-                if spike["direction"] == "pos":
-                    score = max(score, 0.35)
-                else:
-                    score = min(score, -0.35)
-
-            pos_size = compute_position_size(df, score, regime["alt_multiplier"])
-            label    = get_signal_label(score)
+            close  = get_price_history(coin["id"])
+            sc     = score(close)
+            lbl    = label(sc["score"])
+            psize  = pos_size(close, sc["score"], regime["alt_multiplier"])
 
             sig = {
-                "symbol":      sym,
-                "price":       coin["price"],
-                "volume_usd":  coin["volume_usd"],
-                "signal":      label,
-                "score":       round(score, 3),
-                "trend_z":     scores["trend"],
-                "momentum_z":  scores["momentum"],
-                "carry_z":     scores["carry"],
-                "funding":     round(funding * 100, 4),
-                "funding_z":   spike.get("z", 0.0),
-                "spike":       spike.get("spike", False),
-                "spike_note":  spike.get("note", ""),
-                "pos_size_pct": pos_size,
-                "regime_mult": regime["alt_multiplier"],
-                "price_chg_24h": coin["price_chg_24h"]
+                "symbol":        sym,
+                "price":         coin["price"],
+                "volume_usd":    coin["volume_usd"],
+                "signal":        lbl,
+                "score":         sc["score"],
+                "trend_z":       sc["trend"],
+                "momentum_z":    sc["momentum"],
+                "carry_z":       0.0,
+                "funding":       0.0,
+                "funding_z":     0.0,
+                "spike":         False,
+                "spike_note":    "",
+                "pos_size_pct":  psize,
+                "regime_mult":   regime["alt_multiplier"],
+                "price_chg_24h": round(coin["price_chg_24h"], 2)
             }
             signals.append(sig)
 
-            bar = "+" * max(0, int(score * 10)) if score >= 0 else "-" * max(0, int(-score * 10))
-            print(f"  {sym:8s} {label:14s} score={score:+.2f} {bar}")
-            time.sleep(0.15)  # rate limit
+            bar = ("+" * max(0, int(sc["score"]*10))) if sc["score"] >= 0 \
+                  else ("-" * max(0, int(-sc["score"]*10)))
+            print(f"  {sym:8s} {lbl:14s} {sc['score']:+.2f} {bar}")
+
+            # CoinGecko rate limit: 30 req/dk → her istekte bekle
+            if i < len(universe) - 1:
+                time.sleep(2.5)
 
         except Exception as e:
             print(f"  {sym:8s} [HATA] {e}")
-            continue
 
-    # Skora göre sırala
     signals.sort(key=lambda x: abs(x["score"]), reverse=True)
+    longs  = [s for s in signals if s["signal"] in ("LONG","STRONG_LONG")]
+    shorts = [s for s in signals if s["signal"] in ("SHORT","STRONG_SHORT")]
 
-    # 4. Portföy özeti
-    longs  = [s for s in signals if s["signal"] in ("LONG", "STRONG_LONG")]
-    shorts = [s for s in signals if s["signal"] in ("SHORT", "STRONG_SHORT")]
-    total_long_pct  = min(sum(s["pos_size_pct"] for s in longs), 80.0)
-    total_short_pct = min(sum(s["pos_size_pct"] for s in shorts), 40.0)
-
-    # 5. Output JSON
     output = {
-        "generated_at":      now.isoformat(),
-        "generated_at_str":  now.strftime("%d %b %Y, %H:%M UTC"),
-        "btc_regime": regime,
+        "generated_at":     now.isoformat(),
+        "generated_at_str": now.strftime("%d %b %Y, %H:%M UTC"),
+        "btc_regime":       regime,
         "portfolio_summary": {
-            "total_long_pct":  round(total_long_pct, 1),
-            "total_short_pct": round(total_short_pct, 1),
+            "total_long_pct":  round(min(sum(s["pos_size_pct"] for s in longs), 80), 1),
+            "total_short_pct": round(min(sum(s["pos_size_pct"] for s in shorts), 40), 1),
             "long_count":      len(longs),
             "short_count":     len(shorts),
             "flat_count":      len(signals) - len(longs) - len(shorts)
@@ -367,19 +197,12 @@ def main():
         "signals": signals
     }
 
-    out_path = DOCS / "signals.json"
-    with open(out_path, "w") as f:
-        json.dump(output, f, indent=2, ensure_ascii=False)
-
+    out = DOCS / "signals.json"
+    out.write_text(json.dumps(output, indent=2, ensure_ascii=False))
     (DOCS / "last_run.txt").write_text(now.isoformat())
 
-    print(f"\n  ÖZET:")
-    print(f"  Long:  {len(longs)} coin (%{round(total_long_pct,1)} portföy)")
-    print(f"  Short: {len(shorts)} coin (%{round(total_short_pct,1)} portföy)")
-    print(f"  Flat:  {len(signals)-len(longs)-len(shorts)} coin")
-    print(f"\n  Çıktı: {out_path}")
-    print("  Tamamlandı.")
-
+    print(f"\n  Long: {len(longs)} | Short: {len(shorts)} | Flat: {len(signals)-len(longs)-len(shorts)}")
+    print(f"  Çıktı: {out}")
 
 if __name__ == "__main__":
     main()
