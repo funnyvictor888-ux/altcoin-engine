@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-04-25T19:03:06.172879+00:00",
-  "generated_at_str": "25 Apr 2026, 19:03 UTC",
+  "generated_at": "2026-04-25T19:04:36.729564+00:00",
+  "generated_at_str": "25 Apr 2026, 19:04 UTC",
   "btc_regime": {
     "regime": "BULL_GAMMA",
-    "spot": 77327.0,
+    "spot": 77333.0,
     "net_gex_proxy": 0.0,
-    "flip_estimate": 75780.0,
+    "flip_estimate": 75787.0,
     "alt_multiplier": 1.0
   },
   "portfolio_summary": {
