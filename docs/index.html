@@ -666,11 +666,91 @@ async function load(){
     const next=new Date(new Date(d.generated_at).getTime()+4*3600000);
     document.getElementById('next-run').textContent='Sonraki: '+next.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})+' UTC';
 
+    // ── AUTO TRADE ─────────────────────────────────────────
+    autoTrade(d.signals, regime);
+
     renderPaper();
     fetchLivePrices();
   } catch(e){
     document.getElementById('signal-body').innerHTML=
       `<tr><td colspan="7" class="empty">Hata: ${e.message}</td></tr>`;
+  }
+}
+
+// ─── Auto Trade ───────────────────────────────────────────────
+function autoTrade(signals, regime) {
+  // NEUTRAL veya FLIP ZONE'da auto trade yok
+  if(regime === 'NEUTRAL' || regime === 'FLIP_ZONE') return;
+
+  const s      = getSettings();
+  const trades = getTrades();
+  const openTrades = trades.filter(t=>t.status==='open');
+
+  // Max 4 pozisyon kontrolü
+  const {margin} = calcPositionSize();
+  const usedMargin = openTrades.reduce((a,t)=>a+t.margin, 0);
+  const availableSlots = Math.floor((s.capital - usedMargin) / margin);
+  if(availableSlots <= 0) return;
+
+  let opened = 0;
+
+  for(const sig of signals) {
+    if(opened >= availableSlots) break;
+
+    // Sadece STRONG sinyaller
+    const isStrongLong  = sig.signal === 'STRONG_LONG';
+    const isStrongShort = sig.signal === 'STRONG_SHORT';
+    if(!isStrongLong && !isStrongShort) continue;
+
+    // Regime filtresi
+    if(regime === 'BULL_GAMMA' && !isStrongLong)  continue;
+    if(regime === 'BEAR_GAMMA' && !isStrongShort) continue;
+
+    // Zaten açık pozisyon var mı
+    if(trades.find(t=>t.symbol===sig.symbol && t.status==='open')) continue;
+
+    // Pozisyonu aç
+    const dir = isStrongLong ? 'LONG' : 'SHORT';
+    const price = sig.price;
+    const {riskUSD, notional, margin: marginReq, liqPct, leverage} = calcPositionSize();
+
+    const sl = dir==='LONG' ? price*0.98 : price*1.02;
+    const tp = dir==='LONG' ? price*1.06 : price*0.94;
+    const tp_partial = dir==='LONG' ? price*1.03 : price*0.97;
+    const liq = dir==='LONG' ? price*(1-liqPct/100) : price*(1+liqPct/100);
+    const qty = notional / price;
+
+    trades.push({
+      id:          Date.now()+'_'+sig.symbol+'_auto',
+      symbol:      sig.symbol,
+      direction:   dir,
+      coinId:      sig.symbol.toLowerCase(),
+      entry: price, sl, tp, tp_partial,
+      sl_original: sl, liq,
+      leverage, notional, margin: marginReq, riskUSD, qty,
+      phase:        'FULL',
+      size:         1.0,
+      realized_usd: 0,
+      realized_pct: 0,
+      exit: null, status: 'open',
+      date: new Date().toISOString(),
+      closeReason: null,
+      auto: true
+    });
+
+    opened++;
+    notify(
+      `🤖 AUTO TRADE: <b>${sig.symbol} ${dir}</b><br>` +
+      `Skor: ${sig.score.toFixed(3)} | Regime: ${regime}<br>` +
+      `Notional: $${notional.toFixed(0)} | Margin: $${marginReq.toFixed(0)} | ${leverage}x<br>` +
+      `SL: $${sl.toFixed(4)} | TP½: $${tp_partial.toFixed(4)} | TP: $${tp.toFixed(4)}`,
+      dir==='LONG' ? 'var(--teal)' : 'var(--red)'
+    );
+  }
+
+  if(opened > 0) {
+    saveTrades(trades);
+    renderPaper();
   }
 }
 
