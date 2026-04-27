@@ -250,9 +250,46 @@ function saveSettings() {
 }
 
 // ─── Storage ──────────────────────────────────────────────────
-const KEY = 'pt_v4';
-function getTrades()   { return JSON.parse(localStorage.getItem(KEY)||'[]'); }
-function saveTrades(t) { localStorage.setItem(KEY, JSON.stringify(t)); }
+const JSONBIN_ID  = '69ef9b27856a6821897bbca8';
+const JSONBIN_KEY = '$2a$10$d6ulGr8K7.8R09vc6TA.reR95tb2y.3JRJbEtmnlrVuUVBAuIiQdO';
+const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_ID}`;
+
+let _trades = [];
+let _saveTimer = null;
+
+async function loadTradesFromCloud() {
+  try {
+    const r = await fetch(JSONBIN_URL+'/latest', {
+      headers: { 'X-Master-Key': JSONBIN_KEY }
+    });
+    const d = await r.json();
+    _trades = d.record?.trades || [];
+  } catch(e) {
+    _trades = JSON.parse(localStorage.getItem('pt_backup')||'[]');
+  }
+}
+
+async function saveToCloud(trades) {
+  localStorage.setItem('pt_backup', JSON.stringify(trades));
+  try {
+    await fetch(JSONBIN_URL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': JSONBIN_KEY
+      },
+      body: JSON.stringify({ trades })
+    });
+  } catch(e) { console.warn('Cloud save failed:', e); }
+}
+
+function getTrades() { return _trades; }
+function saveTrades(t) {
+  _trades = t;
+  localStorage.setItem('pt_backup', JSON.stringify(t));
+  if(_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => saveToCloud(t), 800);
+}
 
 // ─── Tab ──────────────────────────────────────────────────────
 function switchTab(n) {
@@ -754,8 +791,12 @@ function autoTrade(signals, regime) {
   }
 }
 
-saveSettings();
-load();
+// İlk yüklemede cloud'dan trades çek, sonra normal başlat
+loadTradesFromCloud().then(() => {
+  saveSettings();
+  load();
+  renderPaper();
+});
 setInterval(load,5*60*1000);
 setInterval(fetchLivePrices,3*60*1000);
 </script>
