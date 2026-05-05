@@ -1,28 +1,28 @@
 {
-  "generated_at": "2026-05-05T03:37:10.048287+00:00",
-  "generated_at_str": "05 May 2026, 03:37 UTC",
+  "generated_at": "2026-05-05T06:25:00.877974+00:00",
+  "generated_at_str": "05 May 2026, 06:25 UTC",
   "btc_regime": {
     "regime": "BULL_GAMMA",
-    "spot": 80806.0,
-    "chg_24h": 1.01,
+    "spot": 80833.0,
+    "chg_24h": 1.35,
     "alt_multiplier": 1.0
   },
   "portfolio_summary": {
-    "total_long_pct": 42.6,
+    "total_long_pct": 31.9,
     "total_short_pct": 0,
-    "long_count": 3,
+    "long_count": 2,
     "short_count": 0,
-    "flat_count": 17
+    "flat_count": 18
   },
   "signals": [
     {
       "symbol": "TON",
-      "price": 1.75,
-      "volume_usd": 594341897,
+      "price": 1.73,
+      "volume_usd": 657032809,
       "signal": "STRONG_LONG",
-      "score": 0.838,
+      "score": 0.828,
       "trend_z": 3.0,
-      "momentum_z": 1.79,
+      "momentum_z": 1.71,
       "carry_z": 0.0,
       "funding": 0.0,
       "funding_z": 0.0,
@@ -30,33 +30,16 @@
       "spike_note": "",
       "pos_size_pct": 11.9,
       "regime_mult": 1.0,
-      "price_chg_24h": 27.72
-    },
-    {
-      "symbol": "ZEC",
-      "price": 428.09,
-      "volume_usd": 804623352,
-      "signal": "STRONG_LONG",
-      "score": 0.605,
-      "trend_z": 2.38,
-      "momentum_z": 0.96,
-      "carry_z": 0.0,
-      "funding": 0.0,
-      "funding_z": 0.0,
-      "spike": false,
-      "spike_note": "",
-      "pos_size_pct": 10.7,
-      "regime_mult": 1.0,
-      "price_chg_24h": 2.19
+      "price_chg_24h": 24.72
     },
     {
       "symbol": "USD1",
-      "price": 0.999873,
-      "volume_usd": 946306255,
+      "price": 1.0,
+      "volume_usd": 927269231,
       "signal": "LONG",
-      "score": 0.238,
+      "score": 0.286,
       "trend_z": -0.06,
-      "momentum_z": 1.87,
+      "momentum_z": 2.23,
       "carry_z": 0.0,
       "funding": 0.0,
       "funding_z": 0.0,
@@ -67,9 +50,26 @@
       "price_chg_24h": 0.02
     },
     {
+      "symbol": "ZEC",
+      "price": 419.37,
+      "volume_usd": 784869581,
+      "signal": "FLAT",
+      "score": 0.026,
+      "trend_z": -0.39,
+      "momentum_z": 0.78,
+      "carry_z": 0.0,
+      "funding": 0.0,
+      "funding_z": 0.0,
+      "spike": false,
+      "spike_note": "",
+      "pos_size_pct": 0.5,
+      "regime_mult": 1.0,
+      "price_chg_24h": 1.45
+    },
+    {
       "symbol": "LINK",
       "price": 9.51,
-      "volume_usd": 562417680,
+      "volume_usd": 584925502,
       "signal": "FLAT",
       "score": 0.0,
       "trend_z": 0.0,
@@ -81,12 +81,12 @@
       "spike_note": "",
       "pos_size_pct": 0.0,
       "regime_mult": 1.0,
-      "price_chg_24h": 2.12
+      "price_chg_24h": 2.28
     },
     {
       "symbol": "ADA",
-      "price": 0.252039,
-      "volume_usd": 405909745,
+      "price": 0.252828,
+      "volume_usd": 399951859,
       "signal": "FLAT",
       "score": 0.0,
       "trend_z": 0.0,
@@ -98,12 +98,12 @@
       "spike_note": "",
       "pos_size_pct": 0.0,
       "regime_mult": 1.0,
-      "price_chg_24h": -0.57
+      "price_chg_24h": 0.34
     },
     {
       "symbol": "PEPE",
-      "price": 4.04e-06,
-      "volume_usd": 397577531,
+      "price": 4.06e-06,
+      "volume_usd": 383756645,
       "signal": "FLAT",
       "score": 0.0,
       "trend_z": 0.0,
@@ -115,12 +115,12 @@
       "spike_note": "",
       "pos_size_pct": 0.0,
       "regime_mult": 1.0,
-      "price_chg_24h": -0.43
+      "price_chg_24h": 1.0
     },
     {
       "symbol": "LTC",
-      "price": 55.16,
-      "volume_usd": 387277090,
+      "price": 55.14,
+      "volume_usd": 379120303,
       "signal": "FLAT",
       "score": 0.0,
       "trend_z": 0.0,
@@ -132,12 +132,12 @@
       "spike_note": "",
       "pos_size_pct": 0.0,
       "regime_mult": 1.0,
-      "price_chg_24h": -1.47
+      "price_chg_24h": -1.57
     },
     {
       "symbol": "DASH",
-      "price": 46.83,
-      "volume_usd": 380869967,
+      "price": 45.54,
+      "volume_usd": 328955659,
       "signal": "FLAT",
       "score": 0.0,
       "trend_z": 0.0,
@@ -149,12 +149,12 @@
       "spike_note": "",
       "pos_size_pct": 0.0,
       "regime_mult": 1.0,
-      "price_chg_24h": 1.64
+      "price_chg_24h": -4.58
     },
     {
       "symbol": "SUI",
-      "price": 0.940255,
-      "volume_usd": 338906473,
+      "price": 0.942484,
+      "volume_usd": 314193661,
       "signal": "FLAT",
       "score": 0.0,
       "trend_z": 0.0,
@@ -166,12 +166,12 @@
       "spike_note": "",
       "pos_size_pct": 0.0,
       "regime_mult": 1.0,
-      "price_chg_24h": 0.32
+      "price_chg_24h": 0.3
     },
     {
       "symbol": "PENGU",
-      "price": 0.0105457,
-      "volume_usd": 295490260,
+      "price": 0.0108198,
+      "volume_usd": 302457316,
       "signal": "FLAT",
       "score": 0.0,
       "trend_z": 0.0,
@@ -183,12 +183,12 @@
       "spike_note": "",
       "pos_size_pct": 0.0,
       "regime_mult": 1.0,
-      "price_chg_24h": 1.67
+      "price_chg_24h": 7.26
     },
     {
       "symbol": "ONDO",
-      "price": 0.318552,
-      "volume_usd": 294204994,
+      "price": 0.317154,
+      "volume_usd": 285936783,
       "signal": "FLAT",
       "score": 0.0,
       "trend_z": 0.0,
@@ -200,12 +200,12 @@
       "spike_note": "",
       "pos_size_pct": 0.0,
       "regime_mult": 1.0,
-      "price_chg_24h": 7.3
+      "price_chg_24h": 1.2
     },
     {
       "symbol": "AAVE",
-      "price": 93.09,
-      "volume_usd": 279056206,
+      "price": 92.69,
+      "volume_usd": 268565344,
       "signal": "FLAT",
       "score": 0.0,
       "trend_z": 0.0,
@@ -217,12 +217,12 @@
       "spike_note": "",
       "pos_size_pct": 0.0,
       "regime_mult": 1.0,
-      "price_chg_24h": -0.93
+      "price_chg_24h": -1.2
     },
     {
       "symbol": "AVAX",
       "price": 9.28,
-      "volume_usd": 261087265,
+      "volume_usd": 259312633,
       "signal": "FLAT",
       "score": 0.0,
       "trend_z": 0.0,
@@ -234,12 +234,46 @@
       "spike_note": "",
       "pos_size_pct": 0.0,
       "regime_mult": 1.0,
-      "price_chg_24h": 0.18
+      "price_chg_24h": 0.1
+    },
+    {
+      "symbol": "BILL",
+      "price": 0.0420481,
+      "volume_usd": 248066023,
+      "signal": "FLAT",
+      "score": 0.0,
+      "trend_z": 0.0,
+      "momentum_z": 0.0,
+      "carry_z": 0.0,
+      "funding": 0.0,
+      "funding_z": 0.0,
+      "spike": false,
+      "spike_note": "",
+      "pos_size_pct": 0.0,
+      "regime_mult": 1.0,
+      "price_chg_24h": 86.96
+    },
+    {
+      "symbol": "XAUT",
+      "price": 4534.93,
+      "volume_usd": 234585651,
+      "signal": "FLAT",
+      "score": 0.0,
+      "trend_z": 0.0,
+      "momentum_z": 0.0,
+      "carry_z": 0.0,
+      "funding": 0.0,
+      "funding_z": 0.0,
+      "spike": false,
+      "spike_note": "",
+      "pos_size_pct": 0.0,
+      "regime_mult": 1.0,
+      "price_chg_24h": -1.19
     },
     {
       "symbol": "TAO",
-      "price": 287.85,
-      "volume_usd": 245235004,
+      "price": 284.49,
+      "volume_usd": 231211126,
       "signal": "FLAT",
       "score": 0.0,
       "trend_z": 0.0,
@@ -251,12 +285,29 @@
       "spike_note": "",
       "pos_size_pct": 0.0,
       "regime_mult": 1.0,
-      "price_chg_24h": -1.73
+      "price_chg_24h": -0.95
+    },
+    {
+      "symbol": "BCH",
+      "price": 445.08,
+      "volume_usd": 217257703,
+      "signal": "FLAT",
+      "score": 0.0,
+      "trend_z": 0.0,
+      "momentum_z": 0.0,
+      "carry_z": 0.0,
+      "funding": 0.0,
+      "funding_z": 0.0,
+      "spike": false,
+      "spike_note": "",
+      "pos_size_pct": 0.0,
+      "regime_mult": 1.0,
+      "price_chg_24h": -0.36
     },
     {
       "symbol": "UNI",
       "price": 3.32,
-      "volume_usd": 243620226,
+      "volume_usd": 211937038,
       "signal": "FLAT",
       "score": 0.0,
       "trend_z": 0.0,
@@ -268,63 +319,12 @@
       "spike_note": "",
       "pos_size_pct": 0.0,
       "regime_mult": 1.0,
-      "price_chg_24h": -0.52
-    },
-    {
-      "symbol": "XAUT",
-      "price": 4534.34,
-      "volume_usd": 241600265,
-      "signal": "FLAT",
-      "score": 0.0,
-      "trend_z": 0.0,
-      "momentum_z": 0.0,
-      "carry_z": 0.0,
-      "funding": 0.0,
-      "funding_z": 0.0,
-      "spike": false,
-      "spike_note": "",
-      "pos_size_pct": 0.0,
-      "regime_mult": 1.0,
-      "price_chg_24h": -1.37
-    },
-    {
-      "symbol": "ATH",
-      "price": 0.00621585,
-      "volume_usd": 217840964,
-      "signal": "FLAT",
-      "score": 0.0,
-      "trend_z": 0.0,
-      "momentum_z": 0.0,
-      "carry_z": 0.0,
-      "funding": 0.0,
-      "funding_z": 0.0,
-      "spike": false,
-      "spike_note": "",
-      "pos_size_pct": 0.0,
-      "regime_mult": 1.0,
-      "price_chg_24h": 3.62
-    },
-    {
-      "symbol": "SKYAI",
-      "price": 0.604104,
-      "volume_usd": 213586551,
-      "signal": "FLAT",
-      "score": 0.0,
-      "trend_z": 0.0,
-      "momentum_z": 0.0,
-      "carry_z": 0.0,
-      "funding": 0.0,
-      "funding_z": 0.0,
-      "spike": false,
-      "spike_note": "",
-      "pos_size_pct": 0.0,
-      "regime_mult": 1.0,
-      "price_chg_24h": 11.41
+      "price_chg_24h": -2.17
     },
     {
       "symbol": "MEGA",
-      "price": 0.128539,
-      "volume_usd": 211215281,
+      "price": 0.128168,
+      "volume_usd": 208415705,
       "signal": "FLAT",
       "score": 0.0,
       "trend_z": 0.0,
@@ -336,12 +336,12 @@
       "spike_note": "",
       "pos_size_pct": 0.0,
       "regime_mult": 1.0,
-      "price_chg_24h": 1.26
+      "price_chg_24h": -1.51
     },
     {
-      "symbol": "BCH",
-      "price": 444.89,
-      "volume_usd": 208775923,
+      "symbol": "ATH",
+      "price": 0.00621058,
+      "volume_usd": 206725441,
       "signal": "FLAT",
       "score": 0.0,
       "trend_z": 0.0,
@@ -353,7 +353,7 @@
       "spike_note": "",
       "pos_size_pct": 0.0,
       "regime_mult": 1.0,
-      "price_chg_24h": -0.86
+      "price_chg_24h": 3.99
     }
   ]
 }
